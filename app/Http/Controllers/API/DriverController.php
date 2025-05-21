@@ -5,24 +5,32 @@ namespace App\Http\Controllers\API;
 
 
 use App\Helpers\api\Helpers;
+use App\Helpers\UploadableTrait;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\Driver;
+use App\Models\ImageVehicule;
+use App\Models\Passager;
+use App\Models\Reservation;
 use App\Models\Trajet;
 use App\Models\Vehicule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use function Illuminate\Auth\id;
 
 class DriverController extends Controller
 {
-    public function createDriver(Request $request){
+    use UploadableTrait;
+
+    public function createDriver(Request $request)
+    {
         $personnal = $request->personnal;
         $validator = Validator::make($request->all(), [
-/*            'driving_license_number' => 'required',
-            'driving_license_from' => 'required',
-            'driving_license_back' => 'required',*/
+            /*            'driving_license_number' => 'required',
+                        'driving_license_from' => 'required',
+                        'driving_license_back' => 'required',*/
             'marque' => 'required',
             'color' => 'required',
             'matriculate' => 'required'
@@ -37,32 +45,48 @@ class DriverController extends Controller
         }
 
         DB::beginTransaction();
-        $driver=new Driver();
-        $driver->user_id=$personnal->id;
+        $driver = new Driver();
+        $driver->user_id = $personnal->id;
         $driver->save();
-        $body=[
+        if ($request->hasFile('files')) {
+            $uploadedFiles = $request->file('files');
+            $vehicule = new Vehicule();
+            $vehicule->color = $request->color;
+            $vehicule->marque = $request->marque;
+            $vehicule->matriculate = $request->matriculate;
+            $vehicule->driver_id = $driver->id;
+            $vehicule->save();
+            foreach ($uploadedFiles as $file) {
+                $image = new ImageVehicule();
+                $image->src = $this->uploadOne($file, 'cars_image');
+                $image->vehicule_id = $vehicule->id;
+                $image->save();
+            }
+        }
+/*        $body = [
             'model' => $request->model,
             'marque' => $request->marque,
-            'color' =>  $request->color,
-            'matriculate' =>  $request->matriculate,
-            'driver_id'=>$driver->id
+            'color' => $request->color,
+            'matriculate' => $request->matriculate,
+            'driver_id' => $driver->id
         ];
-        $car=new Vehicule($body);
-        $car->save($body);
+        $car = new Vehicule($body);
+        $car->save($body);*/
         DB::commit();
         return Helpers::success([
-            'first_name'=>$driver->user->first_name,
-            'last_name'=>$driver->user->last_name,
-            'email'=>$driver->user->email,
-            'phone'=>$driver->user->phone,
-            'country_name'=>$driver->user->country->name,
-            'country_id'=>$driver->user->country->id,
-            'balance'=>$driver->balance,
+            'first_name' => $driver->user->first_name,
+            'last_name' => $driver->user->last_name,
+            'email' => $driver->user->email,
+            'phone' => $driver->user->phone,
+            'country_name' => $driver->user->country->name,
+            'country_id' => $driver->user->country->id,
+            'balance' => $driver->balance,
 
         ]);
     }
 
-    public function createTrajet(Request $request){
+    public function createTrajet(Request $request)
+    {
         $personnal = $request->personnal;
         $validator = Validator::make($request->all(), [
             'price' => 'required',
@@ -85,76 +109,157 @@ class DriverController extends Controller
             }
             return Helpers::error($err);
         }
-        $driver=Driver::query()->firstWhere('user_id',$personnal->id);
-        $body=[
+        $driver = Driver::query()->firstWhere('user_id', $personnal->id);
+        $body = [
             'price' => $request->price,
-            'place' =>  $request->place,
-            'date_from' =>  $request->date_from,
-            'date_to' =>  $request->date_to,
-            'time_from' =>  $request->time_from,
-            'city_from_id' =>  $request->city_from_id,
-            'city_to_id' =>  $request->city_to_id,
-            'quarter_to' =>  $request->quarter_to,
-            'quarter_from' =>  $request->quarter_from,
-            'vehicule_id' =>  $request->vehicule_id,
-            'time_to' =>  $request->time_to,
-            'driver_id' =>  $driver->id,
+            'place' => $request->place,
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'time_from' => $request->time_from,
+            'city_from_id' => $request->city_from_id,
+            'city_to_id' => $request->city_to_id,
+            'quarter_to' => $request->quarter_to,
+            'quarter_from' => $request->quarter_from,
+            'vehicule_id' => $request->vehicule_id,
+            'time_to' => $request->time_to,
+            'driver_id' => $driver->id,
 
         ];
-        $trajet=Trajet::query()->firstWhere(['date_from'=>$request->date_from,'time_from'=>$request->time_from,'driver_id'=>$driver->id]);
-        if (!is_null($trajet)){
+        $trajet = Trajet::query()->firstWhere(['date_from' => $request->date_from, 'time_from' => $request->time_from, 'driver_id' => $driver->id]);
+        if (!is_null($trajet)) {
             return Helpers::error('Trajet deja enregistre');
         }
         try {
-            $trajet=new Trajet($body);
+            $trajet = new Trajet($body);
             $trajet->save($body);
             return Helpers::success([
-                'price'=>$trajet->price,
-                'place'=>$trajet->place,
-                'date_from'=>$trajet->date_from,
-                'time_from'=>$trajet->time_from,
-                'city_from_id'=>$trajet->city_from->id,
-                'city_from_name'=>$trajet->city_from->name,
-                'city_to_id'=>$trajet->city_to->id,
-                'city_to_name'=>$trajet->city_to->name,
+                'price' => $trajet->price,
+                'place' => $trajet->place,
+                'date_from' => $trajet->date_from,
+                'time_from' => $trajet->time_from,
+                'city_from_id' => $trajet->city_from->id,
+                'city_from_name' => $trajet->city_from->name,
+                'city_to_id' => $trajet->city_to->id,
+                'city_to_name' => $trajet->city_to->name,
             ]);
-        }catch (\Exception $exception){
+        } catch (\Exception $exception) {
             return Helpers::error($exception->getMessage());
         }
 
     }
 
-    public function getTrajets(Request $request){
+    public function getTrajets(Request $request)
+    {
         $personnal = $request->personnal;
-        $driver=Driver::query()->firstWhere(['user_id'=>$personnal->id]);
-        $trajets=Trajet::query()->where(['driver_id'=>$driver->id])->get();
-        $data=[];
-        foreach ($trajets as $trajet){
-            $data[]=[
-                'price'=>$trajet->price,
-                'place'=>$trajet->place,
-                'date_from'=>$trajet->date_from,
-                'date_to'=>$trajet->date_to,
-                'time_from'=>$trajet->time_from,
-                'city_from_id'=>$trajet->city_from->id,
-                'city_from_name'=>$trajet->city_from->name,
-                'city_to_id'=>$trajet->city_to->id,
-                'city_to_name'=>$trajet->city_to->name,
-                'city_to_lat'=>$trajet->city_to->latitude,
-                'city_to_long'=>$trajet->city_to->longitude,
-                'city_from_lat'=>$trajet->city_from->latitude,
-                'city_from_long'=>$trajet->city_from->longitude,
-                'driver_id'=>$trajet->driver_id,
-                'quarter_to' =>  $trajet->quarter_to,
-                'quarter_from' =>  $trajet->quarter_from,
-                'vehicule_id' =>  $trajet->vehicule_id,
-                'vehicule_marque' =>  $trajet->vehicule->marque,
-                'vehicule_color' =>  $trajet->vehicule->color,
-                'vehicule_matricalte' =>  $trajet->vehicule->matriculate,
-                'time_to' =>  $trajet->time_to,
-                'driver_name' =>  $driver->user->first_name. ''.$driver->user->last_name
+        $driver = Driver::query()->firstWhere(['user_id' => $personnal->id]);
+        $trajets = Trajet::query()->where(['driver_id' => $driver->id])->get();
+        $data = [];
+        foreach ($trajets as $trajet) {
+            $data[] = [
+                'id' => $trajet->id,
+                'price' => $trajet->price,
+                'place' => $trajet->place,
+                'status' => $trajet->stringStatus->value,
+                'place_rest' => $trajet->place_rest,
+                'date_from' => $trajet->date_from,
+                'date_to' => $trajet->date_to,
+                'time_from' => $trajet->time_from,
+                'city_from_id' => $trajet->city_from->id,
+                'city_from_name' => $trajet->city_from->name,
+                'city_to_id' => $trajet->city_to->id,
+                'city_to_name' => $trajet->city_to->name,
+                'city_to_lat' => $trajet->city_to->latitude,
+                'city_to_long' => $trajet->city_to->longitude,
+                'city_from_lat' => $trajet->city_from->latitude,
+                'city_from_long' => $trajet->city_from->longitude,
+                'driver_id' => $trajet->driver_id,
+                'quarter_to' => $trajet->quarter_to,
+                'quarter_from' => $trajet->quarter_from,
+                'vehicule_id' => $trajet->vehicule_id,
+                'vehicule_marque' => $trajet->vehicule->marque,
+                'vehicule_color' => $trajet->vehicule->color,
+                'vehicule_matricalte' => $trajet->vehicule->matriculate,
+                'time_to' => $trajet->time_to,
+                'driver_name' => $trajet->driver->user->first_name . '' . $trajet->driver->user->last_name
             ];
         }
-        return Helpers::success($data,'success');
+        return Helpers::success($data, 'success');
+    }
+    public function getReservations(Request $request, $id)
+    {
+        logger('request'.$id);
+        $reservations = Reservation::query()->where('trajet_id','=',$id)->get();
+        logger($reservations);
+        $data = [];
+        foreach ($reservations as $reservation) {
+            $data[] = [
+                'id' => $reservation->id,
+                'place' => $reservation->place,
+                'amount' => $reservation->amount,
+                'method_payment' => $reservation->method_payment,
+                'status' => $reservation->stringStatus->value,
+                'date_from' => $reservation->trajet->date_from,
+                'date_to' => $reservation->trajet->date_to,
+                'time_from' => $reservation->trajet->time_from,
+                'city_from_id' => $reservation->trajet->city_from->id,
+                'city_from_name' => $reservation->trajet->city_from->name,
+                'city_to_id' => $reservation->trajet->city_to->id,
+                'city_to_name' => $reservation->trajet->city_to->name,
+                'city_to_lat' => $reservation->trajet->city_to->latitude,
+                'city_to_long' => $reservation->trajet->city_to->longitude,
+                'city_from_lat' => $reservation->trajet->city_from->latitude,
+                'city_from_long' => $reservation->trajet->city_from->longitude,
+                'quarter_to' => $reservation->trajet->quarter_to,
+                'quarter_from' => $reservation->trajet->quarter_from,
+                'vehicule_id' => $reservation->trajet->vehicule_id,
+                'vehicule_marque' => $reservation->trajet->vehicule->marque,
+                'vehicule_color' => $reservation->trajet->vehicule->color,
+                'vehicule_matricalte' => $reservation->trajet->vehicule->matriculate,
+                'time_to' => $reservation->trajet->time_to,
+                'driver_id' =>$reservation->trajet->driver_id,
+                'driver_name' => $reservation->trajet->driver->user->first_name . '' . $reservation->trajet->driver->user->last_name,
+                'passager_id' =>$reservation->passager->id,
+                'passager_first_name' =>$reservation->passager->user->first_name,
+                'passager_last_name' =>$reservation->passager->user->last_name,
+                'passager_photo' =>$reservation->passager->user->photo,
+            ];}
+
+        return Helpers::success($data, 'success');
+    }
+    public function uploadImage(Request $request)
+    {
+        $personnal = $request->personnal;
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            //$path = $file->store('uploads', 'public');
+            $personnal->photo = $this->uploadOne($file, 'photos');
+            $personnal->save();
+            return Helpers::success($personnal);
+        }
+        return Helpers::success([]);
+    }
+
+    public function uploadVoiture(Request $request)
+    {
+        $personnal = $request->personnal;
+        $driver = Driver::query()->firstWhere('user_id', $personnal->id);
+        if ($request->hasFile('files')) {
+            logger('********************************');
+            $uploadedFiles = $request->file('files');
+            $vehicule = new Vehicule();
+            $vehicule->color = $request->color;
+            $vehicule->marque = $request->marque;
+            $vehicule->matriculate = $request->matriculate;
+            $vehicule->driver_id = $driver->id;
+            $vehicule->save();
+            foreach ($uploadedFiles as $file) {
+                $image = new ImageVehicule();
+                $image->src = $this->uploadOne($file, 'cars_image');
+                $image->vehicule_id = $vehicule->id;
+                $image->save();
+            }
+        }
+
+        return Helpers::success('success');
     }
 }

@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
+use App\Helpers\Helper;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * 
+ *
  *
  * @property int $id
  * @property string $price
@@ -79,5 +80,50 @@ class Trajet extends Model
     public function vehicule()
     {
         return $this->belongsTo(Vehicule::class,'vehicule_id','id');
+    }
+    public function getStringStatusAttribute() {
+        $status = $this->status;
+        $data = [
+            'class' => "",
+            'value' => "",
+        ];
+        if($status == Helper::STATUSSUCCESS) {
+            $data = [
+                'class'     => "badge rounded-pill bg-success",
+                'value'     => "accepted",
+            ];
+        }else if($status == Helper::STATUSPENDING) {
+            $data = [
+                'class'     => "badge rounded-pill bg-warning",
+                'value'     => "Pending",
+            ];
+        }else if($status == Helper::STATUSHOLD) {
+            $data = [
+                'class'     => "badge rounded-pill bg-danger",
+                'value'     => "Hold",
+            ];
+        }else if($status == Helper::STATUSREJECTED) {
+            $data = [
+                'class'     => "badge rounded-pill bg-danger",
+                'value'     => "Rejected",
+            ];
+        }else if($status == Helper::STATUSWAITING) {
+            $data = [
+                'class'     => "badge rounded-pill bg-warning",
+                'value'     => "Waiting",
+            ];
+        }else if($status == Helper::STATUSFAILD) {
+            $data = [
+                'class'     => "badge rounded-pill bg-danger",
+                'value'     => "Failed",
+            ];
+        }else if($status == Helper::STATUSPROCESSING) {
+            $data = [
+                'class'     => "badge rounded-pill bg-warning",
+                'value'     => "Processing",
+            ];
+        }
+
+        return (object) $data;
     }
 }

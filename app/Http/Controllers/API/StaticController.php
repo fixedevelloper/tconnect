@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\Country;
 use App\Models\Driver;
+use App\Models\ImageVehicule;
 use App\Models\Vehicule;
 use Illuminate\Http\Request;
 
@@ -50,12 +51,14 @@ class StaticController extends Controller
         $vehicules=Vehicule::query()->where(['driver_id'=>$driver->id])->get();
         $data=[];
         foreach ($vehicules as $country){
+            $image=ImageVehicule::query()->firstWhere(['vehicule_id'=>$country['id']]);
             $data[]=[
                 'marque'=>$country['marque'],
                 'color'=>$country['color'],
                 'matriculate'=>$country['matriculate'],
                 'id'=>$country['id'],
                 'driver_id'=>$country['driver_id'],
+                'image'=>is_null($image)?'null':$image->src
             ];
         }
         return Helpers::success($data,'success');
